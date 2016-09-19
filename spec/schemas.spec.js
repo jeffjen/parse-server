@@ -96,7 +96,8 @@ const userSchema = {
     "username": {"type": "String"},
     "password": {"type": "String"},
     "email": {"type": "String"},
-    "emailVerified": {"type": "Boolean"}
+    "emailVerified": {"type": "Boolean"},
+    "authData": {"type": "Object"}
   },
   "classLevelPermissions": defaultClassLevelPermissions,
 }
@@ -676,6 +677,7 @@ describe('schemas', () => {
             password: {type: 'String'},
             email: {type: 'String'},
             emailVerified: {type: 'Boolean'},
+            authData: {type: 'Object'},
             newField: {type: 'String'},
             ACL: {type: 'ACL'}
           },
@@ -696,6 +698,7 @@ describe('schemas', () => {
               password: {type: 'String'},
               email: {type: 'String'},
               emailVerified: {type: 'Boolean'},
+              authData: {type: 'Object'},
               newField: {type: 'String'},
               ACL: {type: 'ACL'}
             },
@@ -1286,10 +1289,8 @@ describe('schemas', () => {
     }).then((results) => {
       expect(results.length).toBe(1);
       done();
-    }, () => {
-      fail("should not fail!");
-      done();
     }).catch( (err) => {
+      jfail(err);
       done();
     })
   });
@@ -1351,15 +1352,13 @@ describe('schemas', () => {
     }).then((results) => {
       expect(results.length).toBe(1);
       done();
-    }, (err) => {
-      fail("should not fail!");
-      done();
     }).catch( (err) => {
+      jfail(err);
       done();
     })
   });
 
-  it_exclude_dbs(['postgres'])('validate CLP 3', done => {
+  it('validate CLP 3', done => {
     let user = new Parse.User();
     user.setUsername('user');
     user.setPassword('user');
@@ -1411,8 +1410,8 @@ describe('schemas', () => {
     }).then((results) => {
       expect(results.length).toBe(1);
       done();
-    }, (err) => {
-      fail("should not fail!");
+    }).catch((err) => {
+      jfail(err);
       done();
     });
   });
@@ -1477,10 +1476,8 @@ describe('schemas', () => {
     }).then((results) => {
       expect(results.length).toBe(1);
       done();
-    }, (err) => {
-      fail("should not fail!");
-      done();
     }).catch( (err) => {
+      jfail(err);
       done();
     })
   });
@@ -1630,6 +1627,42 @@ describe('schemas', () => {
       done();
     }).catch((err) => {
       fail('should not fail');
+      jfail(err);
+      done();
+    });
+  });
+
+  it('regression test for #2246', done => {
+    let profile = new Parse.Object('UserProfile');
+    let user = new Parse.User();
+    function initialize() {
+      return user.save({
+        username: 'user',
+        password: 'password'
+      }).then(() => {
+        return profile.save({user}).then(() => {
+        return user.save({
+            userProfile: profile
+          }, {useMasterKey: true});
+        });
+      });
+    }
+
+    initialize().then(() => {
+      return setPermissionsOnClass('UserProfile', {
+        'readUserFields': ['user'],
+        'writeUserFields': ['user']
+      }, true);
+    }).then(() => {
+      return Parse.User.logIn('user', 'password')
+    }).then(() => {
+      let query = new Parse.Query('_User');
+      query.include('userProfile');
+      return query.get(user.id);
+    }).then((user) => {
+      expect(user.get('userProfile')).not.toBeUndefined();
+      done();
+    }, (err) => {
       jfail(err);
       done();
     });
