@@ -795,7 +795,12 @@ export default class SchemaController {
   // or undefined if the schema is not set
   getExpectedType(className, fieldName) {
     if (this.data && this.data[className]) {
-      const expectedType = this.data[className][fieldName]
+      let expectedType;
+      if (volatileClasses.indexOf(className) === -1) {
+        expectedType = this.data[className][fieldName]
+      } else {
+        expectedType = this.data[className]["fields"][fieldName]
+      }
       return expectedType === 'map' ? 'Object' : expectedType;
     }
     return undefined;
